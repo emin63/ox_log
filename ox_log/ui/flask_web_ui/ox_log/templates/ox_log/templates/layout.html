@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- top level layout.html for ox_log. -->
+<!-- Usually this will be overriden by site layout, but this is -->
+<!-- provided in case the main site does not have a layout.html template. -->
+<html>
+  <head>
+    {% block head %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" 
+	  href="{{ url_for('ox_log.static', filename='w3.css') }}">   
+    <link rel="stylesheet"
+	  href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet"
+	  href="{{ url_for('static', filename='basic_theme.css') }}">    
+    <title>{% block title %} {{ title }} {% endblock %}</title>
+    {% endblock %}
+  </head>
+  <body>
+  {% block top_nav %}
+  <hr>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <ul class=flashes>
+    {% for message in messages %}
+    <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+  {% endwith %}
+  {% endblock %}
+  <hr>
+  {% block body %}{% endblock %}
+  {% block footer %}
+  <div class="footer">
+    <hr>
+    <A HREF="/ox_log">Ox Log</A>
+  </div>
+  {% endblock %}
+  </body>
+</html>
