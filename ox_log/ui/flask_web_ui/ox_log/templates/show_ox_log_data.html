@@ -1,0 +1,78 @@
+
+{% extends 'ox_log_layout.html' %}
+
+{% block body %}
+
+{% if not collapse_keys %}
+{% set collapse_keys = ['op_status', 'extendedProperties'] %}
+{% endif %}
+
+{% macro show_json(item, level) -%}
+{% if item is mapping %}
+<UL>
+  {% if '__details_summary__' in item %}
+  <details><summary>{{ item.pop('__details_summary__')  }}</summary>
+    {{- show_json(item, level+1) -}}
+  </details>
+  {% else %}  
+  {% for piece in item.keys()|sort %}
+  <LI>
+    {% if piece in collapse_keys %}
+    <details><summary>{{piece}}</summary>
+      {{- show_json(item[piece], 1 + level) -}}
+    </details>
+    {% else %}
+    {{ piece }} : {{- show_json(item[piece], 1 + level) -}}
+    {% endif %}
+  </LI>
+  {% endfor %}
+  {% endif %}
+</UL>
+{% elif item is iterable and item is not string %}
+  {% for piece in item %}
+     {{- show_json(piece, level+1) -}}
+  {% endfor %}
+{% else %}
+  {{ item }}
+{% endif %}
+{%- endmacro %}
+
+
+<h1>Ox Log Dashboard</h1>
+
+{% include 'ox_log_problems_snippet.html' %}
+
+<form method="GET" action="{{url_for('ox_log.dashboard')}}">
+  <table>
+    <thead>
+      <th>max Items</th>
+      <th>filter</th>
+      <th>start date</th>
+      <th>end date</th>
+      <th></th>
+    </thead>
+    <tbody>
+      <td><input name="max_items" type="number"
+		 {% if max_items is defined %}
+		 value="{{max_items}}"
+		 {% else %}
+		 value="10"
+		 {% endif %}
+		 step="1" min="0"></td>
+      <td><input name="re_filter" value="{{re_filter}}" type="text"></td>
+      <td><input name="start_date" type="date" value="{{start_date}}"></td>
+      <td><input name="end_date" type="date"></td>            
+      <td><input type="submit" value="Redisplay"></td>
+    </tbody>
+  </table>
+</form>
+<h2>Data</h2>
+{% for topic, data in log_data.items() %}
+<details>
+  <summary>Topic: {{ topic }} ({{ data | length }})</summary>
+  {{- show_json(data, 0) -}}
+</details>
+{% endfor %}
+
+
+{% endblock %}
