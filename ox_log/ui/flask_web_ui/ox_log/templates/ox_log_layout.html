@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block footer %}
+<div class="footer w3-row-padding">
+  <hr>
+  <TABLE cellpadding="12">
+    <TR>
+      <TH>
+	<A HREF="{{url_for('ox_log.home')}}">Ox Log</A>
+      </TH>
+      <TH>
+	<A HREF="{{url_for('ox_log.dashboard')}}">Ox Log Dashboard</A>
+      </TH>
+      <TH>
+	<A HREF="{{url_for('ox_log.refresh')}}">Refresh</A>
+      </TH>
+      <TH>
+	<A HREF="{{url_for('ox_log.add_topic')}}">Add Topic</A>
+      </TH>
+      <TH>
+	<A HREF="{{url_for('ox_log.drop_topic')}}">Drop Topic</A>
+      </TH>                        
+    </TR>
+  </TABLE>
+</div>
+{{ super() }}
+{% endblock %}
+</body>
+</html>
