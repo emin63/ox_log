@@ -1,0 +1,39 @@
+{% extends "ox_log_layout.html" %}
+
+{% block body %}
+
+<h1>Add Topic</h1>
+<p>
+  Enter the name of a topic to subscribe to and add to the dashboard:
+</p>
+<form method="GET" action="{{url_for('ox_log.add_topic')}}">
+  <Table>
+    {% for name in ['topic', 'reader'] %}
+    <tr>
+      <td>
+	{{ name }}
+      </td>
+      <td>
+	<input type="{{name}}" name="{{name}}">
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit" value="Submit">
+    Submit
+  </button>
+</form>
+<hr></hr>
+<details>
+  <summary>Known Readers</summary>
+  <UL>  
+    {% for name, desc in known_readers.items() %}
+      <details>
+	<summary>
+	  {{ name }}</summary>
+	{{ desc }}
+      </details>
+    {% endfor %}
+  </UL>
+</details>
+{% endblock %}
