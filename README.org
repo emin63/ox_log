@@ -1,0 +1,14 @@
+
+* Introduction
+
+The =ox_log= python package is used to do some very simple, lightweight
+log analysis (especially in the flask web framework).
+
+If you want to do something complicated, there are lots and lots of
+log parsing, sending, and visualization tools. Unfortunately, some of
+those systems take some time to understand and setup.
+
+If you just want a very simple, easy to setup system to show some
+information from your logs, then =ox_log= is for you!
+
+
