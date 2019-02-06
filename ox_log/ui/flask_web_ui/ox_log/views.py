@@ -1,13 +1,11 @@
 """Views for ox_log blueprint.
 """
 
-import datetime
-
 from flask import render_template, request
 
 from flask_login import login_required
 
-from ox_log.ui.flask_web_ui.ox_log import OX_LOG_BP, core
+from ox_log.ui.flask_web_ui.ox_log import OX_LOG_BP
 from ox_log.core import loader, utils
 
 
@@ -15,12 +13,16 @@ from ox_log.core import loader, utils
 @OX_LOG_BP.route('/home')
 @login_required
 def home():
+    """Implement home route for ox_log.
+    """
     return render_template('ox_log_home.html')
 
 
 @OX_LOG_BP.route('/dashboard')
 @login_required
 def dashboard():
+    """Show basic dashboard for ox_log.
+    """
     max_items = request.args.get('max_items', '').strip()
     re_filter = request.args.get('re_filter', '.*').strip()
     start_date = request.args.get('start_date', '').strip()
@@ -40,8 +42,10 @@ def dashboard():
 @OX_LOG_BP.route('/add_topic')
 @login_required
 def add_topic():
+    """Add a topic for the given reader.
+    """
     topic = request.args.get('topic', '').strip()
-    reader = request.args.get('reader', '').strip()    
+    reader = request.args.get('reader', '').strip()
     if not topic:
         return render_template('add_topic_form.html', known_readers={
             n: (r if isinstance(r, str) else r.describe())
@@ -53,6 +57,8 @@ def add_topic():
 @OX_LOG_BP.route('/drop_topic')
 @login_required
 def drop_topic():
+    """Drop a topic from ox_log so we don't waste time on it with refresh
+    """
     topic = request.args.get('topic', '').strip()
     if not topic:
         return render_template('drop_topic_form.html', topics=list(
@@ -83,6 +89,25 @@ def refresh():
 
 
 def register(my_app, url_prefix='/ox_log', topics=None, readers=None):
+    """Register the ox_log blueprint and setup routes for views.
+
+    :param my_app:    The flask app.
+
+    :param url_prefix='/ox_log':   URL prefix for ox_log routes.
+
+    :param topics=None:     Optional topics to provide to LogLoader.
+                            See docs for ox_log.core.loader.LogLoader.
+
+    :param readers=None:    Optional readers to provide to LogLoader.
+                            See docs for ox_log.core.loader.LogLoader.
+
+    ~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
+
+    PURPOSE:   Calling this method will register the OX_LOG_BP blueprint,
+               and setup the loader for that blueprint. This is an easy
+               way to include ox_log in your flask project.
+
+    """
     my_app.register_blueprint(OX_LOG_BP, url_prefix=url_prefix)
     config = loader.LoaderConfig(topics=topics, readers=readers)
     OX_LOG_BP.set_ox_log_config(config)
