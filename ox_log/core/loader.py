@@ -9,6 +9,23 @@ import pickle
 import logging
 import re
 import datetime
+import typing
+import gzip
+import json
+
+try:
+    import boto3
+except Exception as problem:  # pylint: disable=broad-except
+    logging.error('Unable to import from boto3 because "%s"\n%s',
+                  str(problem), 'AWS connections will not work.')
+
+try:
+    import eyap
+except Exception as bad:  # pylint: disable=broad-except
+    logging.error('Unable to import eyap for ox_log: %s', str(bad))
+    logging.error('You must install eyap to use EyapReader.')
+    raise
+
 
 from ox_log.core import utils
 
@@ -28,10 +45,21 @@ All log items should provide at a minimum the following fields:
                 of the log item.
 """
 
-    def __init__(self, timestamp, summary, body):
+    def __init__(self, timestamp, summary, body, data=None):
         self.timestamp = timestamp
         self.summary = summary
         self.body = body
+        self.data = dict(data)
+
+    def pretty(self) -> str:
+        "Return pretty string representation."
+        data = '\n  '.join(['%s=%s' % (n, repr(getattr(self, n)))
+                            for n in ['timestamp', 'summary', 'body',
+                                      'data']])
+        return '%s(%s)' % (self.__class__.__name__, data)
+
+    def __repr__(self):
+        return self.pretty()
 
     def timestamp_to_date(self):
         """Convert self.timestamp to a datetime.date and return that.
@@ -51,7 +79,7 @@ class OxLogReader:
     """Base class for a log reader.
     """
 
-    def read(self, topic):
+    def read(self, topic: str, config_kwargs: dict = None):
         """Read data for the given topic.
 
         :param topic:   String indicating topic to read from. This is
@@ -59,6 +87,8 @@ class OxLogReader:
                         the subject line of a discussion thread, the name
                         of a log file, a regular expression, or something
                         else.
+
+        :param config_kwargs:  Sub-class specific dictionary
 
         ~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
 
@@ -122,7 +152,7 @@ This is used for reading log files where each line is a log item.
         self.rstrip_body = rstrip_body
         self.my_re = re.compile(my_re) if isinstance(my_re, str) else my_re
 
-    def read(self, topic):
+    def read(self, topic, config_kwargs=None):
         """Read data for a given topic as required by OxLogReader.read.
 
 We interpret topic as the name of a file and simply go through that file
@@ -145,11 +175,75 @@ line by line parsing out the LogItem instances we can.
         return result
 
 
+class AWSBucketReader(OxLogReader):
+    """Sub-class of OxLogReader to read from AWS Bucket.
+    """
+
+    def read(self, topic, config_kwargs=None):
+        """Read data from AWS bucket as required by OxLogReader.read method.
+
+This method interprets the topic as the bucket name and prefix. For example,
+if you have a bucket named `my.bucket` with prefix `210618`, you would
+provide topic of `my.bucket/210618`.
+        """
+        result = []
+        key_regexp = config_kwargs.pop('key_regexp', '.')
+        my_re = re.compile(key_regexp)
+        session = boto3.Session(**dict(config_kwargs))
+        conn = session.client('s3')
+        bucket, *prefix = topic.split('/')
+        prefix = '/'.join(prefix)
+        if not prefix.strip():
+            prefix = None
+        objects = conn.list_objects(Bucket=bucket, Prefix=prefix)
+        for item in objects['Contents']:
+            if my_re.match(item['Key']):
+                result.extend(self.logitems_from_s3(conn, bucket, item['Key']))
+            else:
+                logging.debug('Skip key %s', item['Key'])
+        return result
+
+    @staticmethod
+    def logitems_from_s3(conn, bucket:str, key: str) -> typing.List[LogItem]:
+        """Helper to get data from S3 and convert to LogItem list.
+
+        :param conn:    An s3.client connection to AWS.
+
+        :param bucket:   String name of bucket.
+
+        :param key:   AWS Key for file to read.
+
+        ~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
+
+        :return:  List of LogItem instances parsed from the file.
+
+        ~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
+
+        PURPOSE:  Read data from an AWS bucket containing JSON log data.
+
+        """
+        obj = conn.get_object(Bucket=bucket, Key=key)
+        body = obj['Body'].read()
+        data = gzip.decompress(body)
+        data = data.decode('utf8')
+        results = []
+        for item in data.split('\n'):
+            if not item:
+                continue
+            jitem = json.loads(item)
+            if 'AWSKey' not in item:
+                jitem['AWSKey'] = key
+            results.append(LogItem(
+                jitem['@timestamp'], jitem['message'], jitem['message'],
+                data=jitem))
+        return results
+
+
 class PickleReader(OxLogReader):
     """Sub-class of OxLogReader for pickled data.
     """
 
-    def read(self, topic):
+    def read(self, topic, config_kwargs=None):
         """Read data from pickled file as requierd by OxLogReader.read.
 
 This method interprets topic as the name of a binary file representing
@@ -182,19 +276,13 @@ if you don't want to use it.
         """
         self.eyap_kwargs = dict(eyap_kwargs)
 
-    def read(self, topic):
+    def read(self, topic, config_kwargs=None):
         """Create eyap reader via something like
 
         my_thread = eyap.Make.comment_thread(topic=topic, **self.eyap_kwargs)
 
            and call my_thread.lookup_comments() to get the log data.
         """
-        try:
-            import eyap
-        except Exception as bad:  # pylint: disable=broad-except
-            logging.error('Unable to import eyap for ox_log: %s', str(bad))
-            logging.error('You must install eyap to use EyapReader.')
-            raise
         my_thread = eyap.Make.comment_thread(topic=topic, **self.eyap_kwargs)
         return my_thread.lookup_comments()
 
